@@ -1,0 +1,19 @@
+{
+  "name": "Pocket Ledger - Expense Tracker",
+  "short_name": "Pocket Ledger",
+  "description": "A private, simple expense tracker for your month.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f3ed",
+  "theme_color": "#f4f3ed",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
