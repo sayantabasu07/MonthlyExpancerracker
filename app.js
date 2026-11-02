@@ -1,6 +1,6 @@
 'use strict';
 
-const CATEGORIES = [
+const DEFAULT_CATEGORIES = [
   { name: 'Food & drink', color: '#df7657', background: '#f5e4dc', icon: 'F' },
   { name: 'Transport', color: '#517a9b', background: '#e1ebf1', icon: 'T' },
   { name: 'Shopping', color: '#9770a1', background: '#eee5f0', icon: 'S' },
@@ -8,6 +8,13 @@ const CATEGORIES = [
   { name: 'Health', color: '#4c8863', background: '#e1eee4', icon: 'H' },
   { name: 'Entertainment', color: '#cd6d76', background: '#f5e4e5', icon: 'E' },
   { name: 'Other', color: '#727b70', background: '#e7e9e4', icon: 'O' }
+];
+const CATEGORY_STYLES = [
+  { color: '#6b8060', background: '#e5ebdf' },
+  { color: '#a06d48', background: '#f1e7dd' },
+  { color: '#597f80', background: '#e0ebea' },
+  { color: '#8b6f9e', background: '#ece5f1' },
+  { color: '#a25f70', background: '#f2e3e7' }
 ];
 const STORAGE_KEY = 'pocket-ledger-v1';
 const DATA_FILE_NAME = 'pocket-ledger-data.json';
@@ -19,6 +26,7 @@ let toastTimer;
 let jsonFileHandle = null;
 let jsonWriteQueue = Promise.resolve();
 let stateRevision = 0;
+let editingExpenseId = null;
 
 function monthKey(date) {
   const parsed = date instanceof Date ? date : new Date(`${date}T12:00:00`);
@@ -30,21 +38,40 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     return normalizeState(saved);
   } catch {
-    return { expenses: [], budget: 0, currency: 'INR' };
+    return { expenses: [], categories: normalizeCategories(), budget: 0, currency: 'INR' };
   }
 }
 
 function normalizeState(saved) {
+  if (!saved || typeof saved !== 'object') saved = {};
   const storedCurrency = saved.currency === 'USD' ? 'INR' : saved.currency;
+  const categories = normalizeCategories(saved.categories);
   return {
-    expenses: Array.isArray(saved.expenses) ? saved.expenses.filter(isValidExpense) : [],
+    expenses: Array.isArray(saved.expenses) ? saved.expenses.filter(expense => isValidExpense(expense, categories)) : [],
+    categories,
     budget: Number.isFinite(Number(saved.budget)) && Number(saved.budget) >= 0 ? Number(saved.budget) : 0,
     currency: ['INR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'].includes(storedCurrency) ? storedCurrency : 'INR'
   };
 }
 
-function isValidExpense(item) {
-  return item && typeof item.id === 'string' && typeof item.title === 'string' && Number.isFinite(Number(item.amount)) && Number(item.amount) > 0 && CATEGORIES.some(category => category.name === item.category) && /^\d{4}-\d{2}-\d{2}$/.test(item.date);
+function normalizeCategories(savedCategories) {
+  const names = new Set(DEFAULT_CATEGORIES.map(category => category.name));
+  if (Array.isArray(savedCategories)) {
+    savedCategories.forEach(category => {
+      const name = typeof category === 'string' ? category : category?.name;
+      if (typeof name === 'string' && name.trim() && name.trim().length <= 30) names.add(name.trim());
+    });
+  }
+  return [...names].map((name, index) => {
+    const defaultCategory = DEFAULT_CATEGORIES.find(category => category.name === name);
+    if (defaultCategory) return { ...defaultCategory };
+    const style = CATEGORY_STYLES[(index - DEFAULT_CATEGORIES.length) % CATEGORY_STYLES.length];
+    return { name, ...style, icon: name.charAt(0).toUpperCase() };
+  });
+}
+
+function isValidExpense(item, categories = state.categories) {
+  return item && typeof item.id === 'string' && typeof item.title === 'string' && Number.isFinite(Number(item.amount)) && Number(item.amount) > 0 && categories.some(category => category.name === item.category) && /^\d{4}-\d{2}-\d{2}$/.test(item.date);
 }
 
 function saveState() {
@@ -135,7 +162,7 @@ function total(expenses) {
 }
 
 function categoryInfo(name) {
-  return CATEGORIES.find(category => category.name === name) || CATEGORIES[CATEGORIES.length - 1];
+  return state.categories.find(category => category.name === name) || DEFAULT_CATEGORIES[DEFAULT_CATEGORIES.length - 1];
 }
 
 function sortedByDate(expenses) {
@@ -156,7 +183,7 @@ function renderDashboard() {
   document.querySelector('#budget-caption').textContent = state.budget ? `${money(Math.max(state.budget - sum, 0))} ${sum > state.budget ? 'over budget' : 'remaining'}` : 'Add a budget in Settings';
   renderComparison();
 
-  const totals = CATEGORIES.map(category => ({ ...category, amount: total(expenses.filter(expense => expense.category === category.name)) })).filter(category => category.amount > 0).sort((a, b) => b.amount - a.amount);
+  const totals = state.categories.map(category => ({ ...category, amount: total(expenses.filter(expense => expense.category === category.name)) })).filter(category => category.amount > 0).sort((a, b) => b.amount - a.amount);
   document.querySelector('#category-meta').textContent = totals.length ? `${totals.length} categories` : '';
   document.querySelector('#category-list').innerHTML = totals.length ? totals.map(category => `<div class="category-row"><div class="category-main"><span class="category-name"><span class="category-dot" style="background:${category.color}"></span>${escapeHtml(category.name)}</span><span class="category-value">${escapeHtml(money(category.amount))}</span></div><div class="category-track"><span style="width:${sum ? category.amount / sum * 100 : 0}%;background:${category.color}"></span></div></div>`).join('') : emptyState('Your categories will appear here', 'Add an expense to see how your spending is split.');
   const recent = sortedByDate(expenses).slice(0, 5);
@@ -187,11 +214,11 @@ function renderHistory() {
 
   const categorySelect = document.querySelector('#history-category');
   const selectedCategory = categorySelect.value || 'all';
-  categorySelect.innerHTML = `<option value="all">All categories</option>${CATEGORIES.map(category => `<option value="${escapeHtml(category.name)}">${escapeHtml(category.name)}</option>`).join('')}`;
+  categorySelect.innerHTML = `<option value="all">All categories</option>${state.categories.map(category => `<option value="${escapeHtml(category.name)}">${escapeHtml(category.name)}</option>`).join('')}`;
   categorySelect.value = selectedCategory;
   const filtered = sortedByDate(state.expenses).filter(expense => (monthSelect.value === 'all' || monthKey(expense.date) === monthSelect.value) && (categorySelect.value === 'all' || expense.category === categorySelect.value));
   document.querySelector('#result-count').textContent = `${filtered.length} ${filtered.length === 1 ? 'expense' : 'expenses'}`;
-  document.querySelector('#history-list').innerHTML = filtered.length ? filtered.map(expense => `<div class="history-row"><div class="transaction-row"><span class="transaction-icon" style="--icon-bg:${categoryInfo(expense.category).background};--icon-color:${categoryInfo(expense.category).color}">${categoryInfo(expense.category).icon}</span><div class="transaction-details"><div class="transaction-title">${escapeHtml(expense.title)}</div><div class="transaction-subtitle">${expense.note ? escapeHtml(expense.note) : escapeHtml(expense.category)}</div></div></div><span class="history-category">${escapeHtml(expense.category)}</span><span class="history-date">${formatDate(expense.date, { year: 'numeric', month: 'short', day: 'numeric' })}</span><span class="history-amount">${escapeHtml(money(expense.amount))}</span><button class="delete-expense" data-delete="${escapeHtml(expense.id)}" aria-label="Delete ${escapeHtml(expense.title)}">×</button></div>`).join('') : emptyState('No expenses found', 'Try another filter or add an expense to get started.');
+  document.querySelector('#history-list').innerHTML = filtered.length ? filtered.map(expense => `<div class="history-row"><div class="transaction-row"><span class="transaction-icon" style="--icon-bg:${categoryInfo(expense.category).background};--icon-color:${categoryInfo(expense.category).color}">${categoryInfo(expense.category).icon}</span><div class="transaction-details"><div class="transaction-title">${escapeHtml(expense.title)}</div><div class="transaction-subtitle">${expense.note ? escapeHtml(expense.note) : escapeHtml(expense.category)}</div></div></div><span class="history-category">${escapeHtml(expense.category)}</span><span class="history-date">${formatDate(expense.date, { year: 'numeric', month: 'short', day: 'numeric' })}</span><span class="history-amount">${escapeHtml(money(expense.amount))}</span><div class="history-actions"><button class="edit-expense" data-edit="${escapeHtml(expense.id)}" aria-label="Edit ${escapeHtml(expense.title)}">Edit</button><button class="delete-expense" data-delete="${escapeHtml(expense.id)}" aria-label="Delete ${escapeHtml(expense.title)}">×</button></div></div>`).join('') : emptyState('No expenses found', 'Try another filter or add an expense to get started.');
 }
 
 function renderSettings() {
@@ -199,6 +226,7 @@ function renderSettings() {
   document.querySelector('#currency-select').value = state.currency;
   document.querySelector('#currency-prefix').textContent = new Intl.NumberFormat(undefined, { style: 'currency', currency: state.currency }).formatToParts(0).find(part => part.type === 'currency').value;
   document.querySelector('#amount-prefix').textContent = document.querySelector('#currency-prefix').textContent;
+  document.querySelector('#category-list-settings').innerHTML = state.categories.map(category => `<span class="category-chip">${escapeHtml(category.name)}</span>`).join('');
 }
 
 function emptyState(title, message) {
@@ -210,6 +238,7 @@ function escapeHtml(value) {
 }
 
 function renderAll() {
+  document.querySelector('#expense-category').innerHTML = state.categories.map(category => `<option>${escapeHtml(category.name)}</option>`).join('');
   renderDashboard();
   renderHistory();
   renderSettings();
@@ -234,10 +263,25 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2400);
 }
 
-function openExpenseDialog() {
-  document.querySelector('#expense-form').reset();
-  const localToday = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  document.querySelector('#expense-date').value = localToday;
+function openExpenseDialog(expenseId = null) {
+  editingExpenseId = expenseId;
+  const form = document.querySelector('#expense-form');
+  const expense = expenseId ? state.expenses.find(item => item.id === expenseId) : null;
+  if (expenseId && !expense) return;
+  form.reset();
+  document.querySelector('#dialog-eyebrow').textContent = expense ? 'UPDATE TRANSACTION' : 'NEW TRANSACTION';
+  document.querySelector('#dialog-title').textContent = expense ? 'Edit expense' : 'Add expense';
+  document.querySelector('#expense-submit-label').textContent = expense ? 'Update expense' : 'Save expense';
+  if (expense) {
+    document.querySelector('#expense-amount').value = expense.amount;
+    document.querySelector('#expense-title').value = expense.title;
+    document.querySelector('#expense-category').value = expense.category;
+    document.querySelector('#expense-date').value = expense.date;
+    document.querySelector('#expense-note').value = expense.note || '';
+  } else {
+    const localToday = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    document.querySelector('#expense-date').value = localToday;
+  }
   document.querySelector('#form-error').textContent = '';
   document.querySelector('#amount-prefix').textContent = document.querySelector('#currency-prefix').textContent;
   document.querySelector('#expense-dialog').showModal();
@@ -267,14 +311,13 @@ function exportCsv() {
 }
 
 document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => showView(button.dataset.view)));
-['#top-add', '#sidebar-add', '#mobile-add'].forEach(selector => document.querySelector(selector).addEventListener('click', openExpenseDialog));
+['#top-add', '#sidebar-add', '#mobile-add'].forEach(selector => document.querySelector(selector).addEventListener('click', () => openExpenseDialog()));
 document.querySelectorAll('.close-dialog').forEach(button => button.addEventListener('click', () => document.querySelector('#expense-dialog').close()));
 document.querySelector('#previous-month').addEventListener('click', () => shiftMonth(-1));
 document.querySelector('#next-month').addEventListener('click', () => shiftMonth(1));
 document.querySelector('#history-month').addEventListener('change', renderHistory);
 document.querySelector('#history-category').addEventListener('change', renderHistory);
 document.querySelector('#export-csv').addEventListener('click', exportCsv);
-document.querySelector('#expense-category').innerHTML = CATEGORIES.map(category => `<option>${escapeHtml(category.name)}</option>`).join('');
 
 document.querySelector('#expense-form').addEventListener('submit', event => {
   event.preventDefault();
@@ -285,15 +328,34 @@ document.querySelector('#expense-form').addEventListener('submit', event => {
     document.querySelector('#form-error').textContent = 'Enter a valid amount, title, and date.';
     return;
   }
-  state.expenses.push({ id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`, amount: Math.round(amount * 100) / 100, title, category: document.querySelector('#expense-category').value, date, note: document.querySelector('#expense-note').value.trim(), createdAt: Date.now() });
+  const updatedExpense = {
+    id: editingExpenseId || (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
+    amount: Math.round(amount * 100) / 100,
+    title,
+    category: document.querySelector('#expense-category').value,
+    date,
+    note: document.querySelector('#expense-note').value.trim(),
+    createdAt: editingExpenseId ? state.expenses.find(expense => expense.id === editingExpenseId).createdAt : Date.now()
+  };
+  if (editingExpenseId) {
+    state.expenses = state.expenses.map(expense => expense.id === editingExpenseId ? updatedExpense : expense);
+  } else {
+    state.expenses.push(updatedExpense);
+  }
   saveState();
   if (monthKey(date) !== selectedMonth && monthKey(date) === currentMonth) selectedMonth = currentMonth;
   renderAll();
   document.querySelector('#expense-dialog').close();
-  showToast('Expense saved.');
+  showToast(editingExpenseId ? 'Expense updated.' : 'Expense saved.');
+  editingExpenseId = null;
 });
 
 document.querySelector('#history-list').addEventListener('click', event => {
+  const editButton = event.target.closest('[data-edit]');
+  if (editButton) {
+    openExpenseDialog(editButton.dataset.edit);
+    return;
+  }
   const button = event.target.closest('[data-delete]');
   if (!button) return;
   const expense = state.expenses.find(item => item.id === button.dataset.delete);
@@ -318,9 +380,33 @@ document.querySelector('#currency-select').addEventListener('change', event => {
   document.querySelector('#settings-message').textContent = 'Currency saved.';
 });
 
+document.querySelector('#category-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const input = document.querySelector('#new-category');
+  const message = document.querySelector('#category-message');
+  const name = input.value.trim();
+  if (!name) {
+    message.textContent = 'Enter a category name.';
+    return;
+  }
+  if (name.length > 30) {
+    message.textContent = 'Category names must be 30 characters or fewer.';
+    return;
+  }
+  if (state.categories.some(category => category.name.toLowerCase() === name.toLowerCase())) {
+    message.textContent = 'That category already exists.';
+    return;
+  }
+  state.categories = normalizeCategories([...state.categories.map(category => category.name), name]);
+  saveState();
+  input.value = '';
+  message.textContent = `${name} added.`;
+  renderAll();
+});
+
 document.querySelector('#clear-data').addEventListener('click', () => {
-  if (!window.confirm('This permanently deletes all expenses and resets your budget. Continue?')) return;
-  state = { expenses: [], budget: 0, currency: 'INR' };
+  if (!window.confirm('This permanently deletes all expenses, categories, and resets your budget. Continue?')) return;
+  state = { expenses: [], categories: normalizeCategories(), budget: 0, currency: 'INR' };
   saveState();
   renderAll();
   showToast('All local data cleared.');
@@ -359,7 +445,7 @@ function importedCategory(value) {
     entertainment: 'Entertainment', leisure: 'Entertainment',
     other: 'Other'
   };
-  return aliases[key] || CATEGORIES.find(category => normalizeImportHeader(category.name) === key)?.name || 'Other';
+  return aliases[key] || state.categories.find(category => normalizeImportHeader(category.name) === key)?.name || 'Other';
 }
 
 function expenseSignature(expense) {

@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'pocket-ledger-v7';
+const CACHE_NAME = 'pocket-ledger-v8';
 const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icon.svg', './vendor/xlsx.full.min.js'];
 
 self.addEventListener('install', event => {
