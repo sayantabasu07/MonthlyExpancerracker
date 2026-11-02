@@ -366,6 +366,26 @@ function expenseSignature(expense) {
   return [expense.date, expense.title.trim().toLowerCase(), Number(expense.amount).toFixed(2), expense.category, (expense.note || '').trim().toLowerCase()].join('|');
 }
 
+document.querySelector('#download-import-example').addEventListener('click', () => {
+  const status = document.querySelector('#import-status');
+  try {
+    if (!window.XLSX) throw new Error('The spreadsheet writer is unavailable. Reload the app and try again.');
+    const workbook = window.XLSX.utils.book_new();
+    const worksheet = window.XLSX.utils.aoa_to_sheet([
+      ['Date', 'Amount', 'Description', 'Category', 'Note'],
+      ['2025-01-15', 12.5, 'Coffee', 'Food & drink', 'Example expense'],
+      ['2025-01-16', 25, 'Bus fare', 'Transport', 'Example expense'],
+      ['2025-01-17', 48.99, 'Household supplies', 'Shopping', 'Example expense']
+    ]);
+    worksheet['!cols'] = [{ wch: 14 }, { wch: 12 }, { wch: 24 }, { wch: 18 }, { wch: 24 }];
+    window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Expenses');
+    window.XLSX.writeFile(workbook, 'pocket-ledger-import-example.xlsx');
+    status.textContent = 'Example downloaded. Replace or remove the sample rows before importing.';
+  } catch (error) {
+    status.textContent = error.message || 'Could not create the example spreadsheet.';
+  }
+});
+
 document.querySelector('#import-file').addEventListener('change', async event => {
   const file = event.target.files[0];
   const status = document.querySelector('#import-status');

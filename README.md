@@ -31,7 +31,7 @@ Open `http://localhost:8000` in a browser. For Android, put the computer and pho
 
 ## Use
 
-Choose **Add expense** to record a purchase. The app defaults to INR; other currencies remain available in Settings. Dashboard and history totals follow the selected month. The dashboard comparison shows that month and the two months before it. In **Settings**, update the budget and display currency or import a spreadsheet. The first worksheet must have a header row with `Date`, `Amount`, and `Description` or `Title`; `Category` and `Note` are optional. Dates should be Excel dates, ISO (`YYYY-MM-DD`), or day-first (`DD/MM/YYYY`). Re-imported exact matching rows are skipped. The history screen's export button downloads all saved expenses as CSV. Use **Clear all data** in Settings to remove local records and reset preferences.
+Choose **Add expense** to record a purchase. The app defaults to INR; other currencies remain available in Settings. Dashboard and history totals follow the selected month. The dashboard comparison shows that month and the two months before it. In **Settings**, update the budget and display currency or import a spreadsheet. Download the example Excel workbook there to use as a template; replace or remove its sample rows before importing. The first worksheet must have a header row with `Date`, `Amount`, and `Description` or `Title`; `Category` and `Note` are optional. Dates should be Excel dates, ISO (`YYYY-MM-DD`), or day-first (`DD/MM/YYYY`). Re-imported exact matching rows are skipped. The history screen's export button downloads all saved expenses as CSV. Use **Clear all data** in Settings to remove local records and reset preferences.
 
 ## Architecture and data
 
