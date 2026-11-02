@@ -6,6 +6,7 @@ Pocket Ledger is a small, installable expense tracker designed for Android phone
 
 - Monthly dashboard with spending total, budget progress, category breakdown, and recent expenses.
 - Three-month spending comparison based on the selected dashboard month.
+- Create named trip or occasion ledgers, assign expenses to them, and see each ledger's total cost.
 - Add, edit, and delete expenses with a title, amount, category, date, and optional note.
 - Add custom transaction categories in Settings.
 - Import prior expenses from `.xlsx`, `.xls`, or `.csv` spreadsheets.
@@ -32,7 +33,7 @@ Open `http://localhost:8000` in a browser. For Android, put the computer and pho
 
 ## Use
 
-Choose **Add expense** to record a purchase. Use **Edit** beside a transaction in its history row to update it. Add custom transaction categories, update the budget and display currency, or import a spreadsheet in **Settings**. The app defaults to INR; other currencies remain available in Settings. Dashboard and history totals follow the selected month. The dashboard comparison shows that month and the two months before it. Download the example Excel workbook there to use as a template; replace or remove its sample rows before importing. The first worksheet must have a header row with `Date`, `Amount`, and `Description` or `Title`; `Category` and `Note` are optional. Dates should be Excel dates, ISO (`YYYY-MM-DD`), or day-first (`DD/MM/YYYY`). Re-imported exact matching rows are skipped. The history screen's export button downloads all saved expenses as CSV. Use **Clear all data** in Settings to remove local records and reset preferences.
+Choose **Add expense** to record a purchase. In the **Ledgers** menu, create a named trip or occasion and use **Add expense** on its card or select it in the expense form to include an expense in its total. Expenses without a selected ledger remain part of regular spending but do not count toward ledger totals. Use **Edit** beside a transaction in its history row to update it. Add custom transaction categories, update the budget and display currency, or import a spreadsheet in **Settings**. The app defaults to INR; other currencies remain available in Settings. Dashboard and history totals follow the selected month. The dashboard comparison shows that month and the two months before it. Download the example Excel workbook there to use as a template; replace or remove its sample rows before importing. The first worksheet must have a header row with `Date`, `Amount`, and `Description` or `Title`; `Category` and `Note` are optional. Dates should be Excel dates, ISO (`YYYY-MM-DD`), or day-first (`DD/MM/YYYY`). Re-imported exact matching rows are skipped. The history screen's export button downloads all saved expenses as CSV. Use **Clear all data** in Settings to remove local records and reset preferences.
 
 ## Architecture and data
 

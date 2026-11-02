@@ -20,6 +20,7 @@
         <nav class="primary-nav">
           <button class="nav-link is-active" data-view="dashboard"><span class="nav-icon" aria-hidden="true">⌂</span>Overview</button>
           <button class="nav-link" data-view="transactions"><span class="nav-icon" aria-hidden="true">≡</span>Transactions</button>
+          <button class="nav-link" data-view="ledgers"><span class="nav-icon" aria-hidden="true">▤</span>Ledgers</button>
           <button class="nav-link" data-view="settings"><span class="nav-icon" aria-hidden="true">⚙</span>Settings</button>
         </nav>
         <div class="sidebar-bottom">
@@ -86,6 +87,28 @@
           <div class="history-table-wrap"><div class="history-head"><span>DESCRIPTION</span><span>CATEGORY</span><span>DATE</span><span class="align-right">AMOUNT</span><span></span></div><div class="history-list" id="history-list"></div></div>
         </section>
 
+        <section class="view" id="view-ledgers" aria-labelledby="ledgers-title" hidden>
+          <div class="page-heading"><div><p class="eyebrow">TRIPS & OCCASIONS</p><h1 id="ledgers-title">Ledgers</h1></div></div>
+          <article class="ledger-total-panel">
+            <div class="panel-kicker"><span>TOTAL ACROSS YOUR LEDGERS</span><span class="panel-symbol" aria-hidden="true">↗</span></div>
+            <p class="hero-amount" id="ledger-total">₹0.00</p>
+            <p class="panel-foot" id="ledger-caption">Create a ledger to start tracking an occasion.</p>
+          </article>
+          <section class="ledger-create-section" aria-labelledby="create-ledger-title">
+            <div class="section-heading"><div><p class="eyebrow">START SOMETHING NEW</p><h2 id="create-ledger-title">Create a ledger</h2></div></div>
+            <form class="ledger-form" id="ledger-form">
+              <label class="settings-field"><span>Ledger name</span><input id="ledger-name" type="text" maxlength="40" placeholder="e.g. Goa weekend" required></label>
+              <label class="settings-field"><span>Occasion type</span><select id="ledger-type"><option value="trip">Trip</option><option value="occasion">Occasion</option></select></label>
+              <button class="submit-button" type="submit">Create ledger <span aria-hidden="true">→</span></button>
+            </form>
+            <p class="ledger-message" id="ledger-message" role="status" aria-live="polite"></p>
+          </section>
+          <section class="ledger-list-section" aria-labelledby="your-ledgers-title">
+            <div class="section-heading"><div><p class="eyebrow">YOUR COLLECTIONS</p><h2 id="your-ledgers-title">Your ledgers</h2></div><span class="section-meta" id="ledger-count"></span></div>
+            <div class="ledger-grid" id="ledger-list"></div>
+          </section>
+        </section>
+
         <section class="view" id="view-settings" aria-labelledby="settings-title" hidden>
           <div class="page-heading"><div><p class="eyebrow">MAKE IT YOURS</p><h1 id="settings-title">Settings</h1></div></div>
           <div class="settings-layout">
@@ -93,7 +116,7 @@
             <section class="settings-section"><div class="settings-copy"><h2>Currency</h2><p>Used to display totals and amounts throughout the app.</p></div><label class="settings-field"><span>Display currency</span><select id="currency-select"><option value="INR">INR - Indian Rupee</option><option value="USD">USD - US Dollar</option><option value="EUR">EUR - Euro</option><option value="GBP">GBP - British Pound</option><option value="CAD">CAD - Canadian Dollar</option><option value="AUD">AUD - Australian Dollar</option></select></label></section>
             <section class="settings-section"><div class="settings-copy"><h2>Transaction categories</h2><p>Add your own categories to organize expenses. Your categories will also be available when editing transactions.</p><div class="category-chip-list" id="category-list-settings"></div></div><form class="category-form" id="category-form"><label class="settings-field" for="new-category"><span>New category</span><input id="new-category" type="text" maxlength="30" placeholder="e.g. Pet care" required></label><button class="outline-button" type="submit">Add category</button><span class="category-message" id="category-message" role="status" aria-live="polite"></span></form></section>
             <section class="settings-section"><div class="settings-copy"><h2>Import expenses</h2><p>Upload an Excel workbook or CSV. Use a header row with Date, Amount, and Description or Title; Category and Note are optional.</p></div><div class="import-control"><button class="outline-button" id="download-import-example" type="button"><span aria-hidden="true">↓</span> Download example Excel</button><label class="outline-button import-button" for="import-file"><input id="import-file" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"><span aria-hidden="true">↑</span> Choose spreadsheet</label><span class="import-status" id="import-status" role="status" aria-live="polite">Replace the sample rows with your expenses before importing.</span></div></section>
-            <section class="settings-section data-section"><div class="settings-copy"><h2>Your data</h2><p>Expenses and settings are stored in this app's private on-device JSON file until you clear them.</p><p class="storage-status" id="storage-status" role="status" aria-live="polite">Preparing local JSON file...</p></div><button class="danger-button" id="clear-data">Clear all data</button></section>
+            <section class="settings-section data-section"><div class="settings-copy"><h2>Your data</h2><p>Expenses, ledgers, and settings are stored in this app's private on-device JSON file until you clear them.</p><p class="storage-status" id="storage-status" role="status" aria-live="polite">Preparing local JSON file...</p></div><button class="danger-button" id="clear-data">Clear all data</button></section>
           </div>
           <p class="save-message" id="settings-message" role="status" aria-live="polite"></p>
         </section>
@@ -104,6 +127,7 @@
       <button class="nav-link is-active" data-view="dashboard"><span class="nav-icon" aria-hidden="true">⌂</span><span>Overview</span></button>
       <button class="nav-link" data-view="transactions"><span class="nav-icon" aria-hidden="true">≡</span><span>Activity</span></button>
       <button class="mobile-add" id="mobile-add" aria-label="Add expense">+</button>
+      <button class="nav-link" data-view="ledgers"><span class="nav-icon" aria-hidden="true">▤</span><span>Ledgers</span></button>
       <button class="nav-link" data-view="settings"><span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span></button>
     </nav>
 
@@ -113,6 +137,7 @@
         <label class="form-field amount-field"><span>Amount</span><div class="amount-input"><span id="amount-prefix">$</span><input id="expense-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required></div></label>
         <label class="form-field"><span>What was it for?</span><input id="expense-title" type="text" maxlength="60" placeholder="e.g. Weekly groceries" required></label>
         <div class="form-row"><label class="form-field"><span>Category</span><select id="expense-category" required></select></label><label class="form-field"><span>Date</span><input id="expense-date" type="date" required></label></div>
+        <label class="form-field"><span>Ledger <small>(optional)</small></span><select id="expense-ledger"></select></label>
         <label class="form-field"><span>Note <small>(optional)</small></span><input id="expense-note" type="text" maxlength="120" placeholder="Add a detail"></label>
         <p class="form-error" id="form-error" role="alert"></p>
         <div class="dialog-actions"><button class="cancel-button close-dialog" type="button">Cancel</button><button class="submit-button" type="submit"><span id="expense-submit-label">Save expense</span><span aria-hidden="true">→</span></button></div>

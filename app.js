@@ -38,7 +38,7 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     return normalizeState(saved);
   } catch {
-    return { expenses: [], categories: normalizeCategories(), budget: 0, currency: 'INR' };
+    return { expenses: [], ledgers: [], categories: normalizeCategories(), budget: 0, currency: 'INR' };
   }
 }
 
@@ -46,8 +46,17 @@ function normalizeState(saved) {
   if (!saved || typeof saved !== 'object') saved = {};
   const storedCurrency = saved.currency === 'USD' ? 'INR' : saved.currency;
   const categories = normalizeCategories(saved.categories);
+  const ledgers = Array.isArray(saved.ledgers) ? saved.ledgers.filter(ledger =>
+    ledger && typeof ledger.id === 'string' && typeof ledger.name === 'string' &&
+    ledger.name.trim() && ledger.name.trim().length <= 40 &&
+    ['trip', 'occasion'].includes(ledger.type)
+  ).map(ledger => ({ id: ledger.id, name: ledger.name.trim(), type: ledger.type })) : [];
   return {
-    expenses: Array.isArray(saved.expenses) ? saved.expenses.filter(expense => isValidExpense(expense, categories)) : [],
+    expenses: Array.isArray(saved.expenses) ? saved.expenses.filter(expense => isValidExpense(expense, categories)).map(expense => ({
+      ...expense,
+      ledgerId: ledgers.some(ledger => ledger.id === expense.ledgerId) ? expense.ledgerId : ''
+    })) : [],
+    ledgers,
     categories,
     budget: Number.isFinite(Number(saved.budget)) && Number(saved.budget) >= 0 ? Number(saved.budget) : 0,
     currency: ['INR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'].includes(storedCurrency) ? storedCurrency : 'INR'
@@ -229,6 +238,19 @@ function renderSettings() {
   document.querySelector('#category-list-settings').innerHTML = state.categories.map(category => `<span class="category-chip">${escapeHtml(category.name)}</span>`).join('');
 }
 
+function renderLedgers() {
+  const ledgerExpenses = state.expenses.filter(expense => state.ledgers.some(ledger => ledger.id === expense.ledgerId));
+  document.querySelector('#ledger-total').textContent = money(total(ledgerExpenses));
+  document.querySelector('#ledger-caption').textContent = state.ledgers.length
+    ? `${state.ledgers.length} ${state.ledgers.length === 1 ? 'ledger' : 'ledgers'} · ${ledgerExpenses.length} ${ledgerExpenses.length === 1 ? 'expense' : 'expenses'}`
+    : 'Create a ledger to start tracking an occasion.';
+  document.querySelector('#ledger-count').textContent = state.ledgers.length ? `${state.ledgers.length} ${state.ledgers.length === 1 ? 'ledger' : 'ledgers'}` : '';
+  document.querySelector('#ledger-list').innerHTML = state.ledgers.length ? state.ledgers.map(ledger => {
+    const expenses = state.expenses.filter(expense => expense.ledgerId === ledger.id);
+    return `<article class="ledger-card"><div class="ledger-card-heading"><span class="ledger-type">${ledger.type === 'trip' ? 'TRIP' : 'OCCASION'}</span><span class="ledger-mark" aria-hidden="true">${ledger.type === 'trip' ? '↗' : '✳'}</span></div><h3>${escapeHtml(ledger.name)}</h3><div class="ledger-card-total">${escapeHtml(money(total(expenses)))}</div><div class="ledger-card-footer"><span>${expenses.length} ${expenses.length === 1 ? 'expense' : 'expenses'}</span><button class="text-button ledger-add-expense" type="button" data-ledger-add="${escapeHtml(ledger.id)}">Add expense <span aria-hidden="true">+</span></button></div></article>`;
+  }).join('') : emptyState('No ledgers yet', 'Create a trip or occasion ledger above to keep its expenses and total together.');
+}
+
 function emptyState(title, message) {
   return `<div class="empty-state"><strong>${escapeHtml(title)}</strong>${escapeHtml(message)}</div>`;
 }
@@ -239,8 +261,10 @@ function escapeHtml(value) {
 
 function renderAll() {
   document.querySelector('#expense-category').innerHTML = state.categories.map(category => `<option>${escapeHtml(category.name)}</option>`).join('');
+  document.querySelector('#expense-ledger').innerHTML = `<option value="">No ledger</option>${state.ledgers.map(ledger => `<option value="${escapeHtml(ledger.id)}">${escapeHtml(ledger.name)}</option>`).join('')}`;
   renderDashboard();
   renderHistory();
+  renderLedgers();
   renderSettings();
 }
 
@@ -263,7 +287,7 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2400);
 }
 
-function openExpenseDialog(expenseId = null) {
+function openExpenseDialog(expenseId = null, ledgerId = '') {
   editingExpenseId = expenseId;
   const form = document.querySelector('#expense-form');
   const expense = expenseId ? state.expenses.find(item => item.id === expenseId) : null;
@@ -278,9 +302,11 @@ function openExpenseDialog(expenseId = null) {
     document.querySelector('#expense-category').value = expense.category;
     document.querySelector('#expense-date').value = expense.date;
     document.querySelector('#expense-note').value = expense.note || '';
+    document.querySelector('#expense-ledger').value = expense.ledgerId || '';
   } else {
     const localToday = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     document.querySelector('#expense-date').value = localToday;
+    document.querySelector('#expense-ledger').value = ledgerId;
   }
   document.querySelector('#form-error').textContent = '';
   document.querySelector('#amount-prefix').textContent = document.querySelector('#currency-prefix').textContent;
@@ -318,6 +344,38 @@ document.querySelector('#next-month').addEventListener('click', () => shiftMonth
 document.querySelector('#history-month').addEventListener('change', renderHistory);
 document.querySelector('#history-category').addEventListener('change', renderHistory);
 document.querySelector('#export-csv').addEventListener('click', exportCsv);
+document.querySelector('#ledger-list').addEventListener('click', event => {
+  const button = event.target.closest('[data-ledger-add]');
+  if (button) openExpenseDialog(null, button.dataset.ledgerAdd);
+});
+
+document.querySelector('#ledger-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const input = document.querySelector('#ledger-name');
+  const message = document.querySelector('#ledger-message');
+  const name = input.value.trim();
+  if (!name) {
+    message.textContent = 'Enter a name for this ledger.';
+    return;
+  }
+  if (name.length > 40) {
+    message.textContent = 'Ledger names must be 40 characters or fewer.';
+    return;
+  }
+  if (state.ledgers.some(ledger => ledger.name.toLowerCase() === name.toLowerCase())) {
+    message.textContent = 'A ledger with that name already exists.';
+    return;
+  }
+  state.ledgers.push({
+    id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+    name,
+    type: document.querySelector('#ledger-type').value
+  });
+  saveState();
+  input.value = '';
+  message.textContent = `${name} ledger created.`;
+  renderAll();
+});
 
 document.querySelector('#expense-form').addEventListener('submit', event => {
   event.preventDefault();
@@ -333,6 +391,7 @@ document.querySelector('#expense-form').addEventListener('submit', event => {
     amount: Math.round(amount * 100) / 100,
     title,
     category: document.querySelector('#expense-category').value,
+    ledgerId: document.querySelector('#expense-ledger').value,
     date,
     note: document.querySelector('#expense-note').value.trim(),
     createdAt: editingExpenseId ? state.expenses.find(expense => expense.id === editingExpenseId).createdAt : Date.now()
@@ -405,8 +464,8 @@ document.querySelector('#category-form').addEventListener('submit', event => {
 });
 
 document.querySelector('#clear-data').addEventListener('click', () => {
-  if (!window.confirm('This permanently deletes all expenses, categories, and resets your budget. Continue?')) return;
-  state = { expenses: [], categories: normalizeCategories(), budget: 0, currency: 'INR' };
+  if (!window.confirm('This permanently deletes all expenses, ledgers, categories, and resets your budget. Continue?')) return;
+  state = { expenses: [], ledgers: [], categories: normalizeCategories(), budget: 0, currency: 'INR' };
   saveState();
   renderAll();
   showToast('All local data cleared.');
